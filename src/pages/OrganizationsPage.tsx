@@ -1048,7 +1048,7 @@ function EditUserDialog(props: {
                   control={control}
                   name="role"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "")}>
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>

@@ -7,6 +7,7 @@ import {
   NotebookTabs,
   Sprout,
   Tag,
+  MapPinned,
   Wheat,
 } from "lucide-react";
 
@@ -51,6 +52,8 @@ const sections: MenuSection[] = [
     items: [
       { to: "/master-data/crop-years", label: "Crop Years", icon: <NotebookTabs className="size-4" /> },
       { to: "/master-data/bag-rates", label: "Bag Rates", icon: <Tag className="size-4" /> },
+      { to: "/master-data/ikp", label: "IKP Master", icon: <MapPinned className="size-4" /> },
+      { to: "/master-data/ikp-centers", label: "IKP Centers", icon: <Tag className="size-4" /> },
     ],
   },
 ];
@@ -79,7 +82,9 @@ export default function AdminLayout() {
 
   const title = React.useMemo(() => {
     if (dashboardItem.to === location.pathname) return dashboardItem.label;
-    const active = sections.flatMap((s) => s.items).find((m) => m.to === location.pathname);
+    const active = sections
+      .flatMap((s) => s.items)
+      .find((m) => location.pathname === m.to || location.pathname.startsWith(`${m.to}/`));
     return active?.label ?? "Admin";
   }, [location.pathname]);
 
