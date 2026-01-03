@@ -57,13 +57,7 @@ import {
   GroupedCombobox,
   type GroupedComboboxGroup,
 } from "@/components/ui/grouped-combobox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 
 import { useUiStore } from "@/store";
 import { useDebounce } from "@/lib/useDebounce";
@@ -156,6 +150,54 @@ function IkpCenterDialog(props: {
     return props.villages.filter((v) => v.mandalId === selectedMandalId);
   }, [props.villages, selectedMandalId]);
 
+  const stateOptionGroups = React.useMemo<GroupedComboboxGroup[]>(() => {
+    return [
+      {
+        label: "States",
+        options: props.states.map((s) => ({
+          value: s.id,
+          label: `${s.code} - ${s.name}`,
+        })),
+      },
+    ];
+  }, [props.states]);
+
+  const districtOptionGroups = React.useMemo<GroupedComboboxGroup[]>(() => {
+    return [
+      {
+        label: "Districts",
+        options: filteredDistricts.map((d) => ({
+          value: d.id,
+          label: d.name,
+        })),
+      },
+    ];
+  }, [filteredDistricts]);
+
+  const mandalOptionGroups = React.useMemo<GroupedComboboxGroup[]>(() => {
+    return [
+      {
+        label: "Mandals",
+        options: filteredMandals.map((m) => ({
+          value: m.id,
+          label: m.name,
+        })),
+      },
+    ];
+  }, [filteredMandals]);
+
+  const villageOptionGroups = React.useMemo<GroupedComboboxGroup[]>(() => {
+    return [
+      {
+        label: "Villages",
+        options: filteredVillages.map((v) => ({
+          value: v.id,
+          label: v.name,
+        })),
+      },
+    ];
+  }, [filteredVillages]);
+
   React.useEffect(() => {
     if (props.open) reset(props.initialValues);
   }, [props.open, props.initialValues, reset]);
@@ -177,7 +219,7 @@ function IkpCenterDialog(props: {
                   control={control}
                   name="stateId"
                   render={({ field }) => (
-                    <Select
+                    <GroupedCombobox
                       value={field.value}
                       onValueChange={(v) => {
                         field.onChange(v);
@@ -185,19 +227,11 @@ function IkpCenterDialog(props: {
                         setValue("mandalId", "");
                         setValue("villageId", "");
                       }}
+                      groups={stateOptionGroups}
                       disabled={props.isStatesLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {props.states.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.code} - {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select state"
+                      emptyText="No states found."
+                    />
                   )}
                 />
                 <FieldError errors={errors.stateId ? [errors.stateId] : []} />
@@ -209,32 +243,24 @@ function IkpCenterDialog(props: {
                   control={control}
                   name="districtId"
                   render={({ field }) => (
-                    <Select
+                    <GroupedCombobox
                       value={field.value}
                       onValueChange={(v) => {
                         field.onChange(v);
                         setValue("mandalId", "");
                         setValue("villageId", "");
                       }}
+                      groups={districtOptionGroups}
                       disabled={!selectedStateId || props.isDistrictsLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            selectedStateId
-                              ? "Select district"
-                              : "Select state first"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredDistricts.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder={
+                        selectedStateId ? "Select district" : "Select state first"
+                      }
+                      emptyText={
+                        selectedStateId
+                          ? "No districts found."
+                          : "Select a state first."
+                      }
+                    />
                   )}
                 />
                 <FieldError
@@ -248,31 +274,23 @@ function IkpCenterDialog(props: {
                   control={control}
                   name="mandalId"
                   render={({ field }) => (
-                    <Select
+                    <GroupedCombobox
                       value={field.value}
                       onValueChange={(v) => {
                         field.onChange(v);
                         setValue("villageId", "");
                       }}
+                      groups={mandalOptionGroups}
                       disabled={!selectedDistrictId || props.isMandalsLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            selectedDistrictId
-                              ? "Select mandal"
-                              : "Select district first"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredMandals.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder={
+                        selectedDistrictId ? "Select mandal" : "Select district first"
+                      }
+                      emptyText={
+                        selectedDistrictId
+                          ? "No mandals found."
+                          : "Select a district first."
+                      }
+                    />
                   )}
                 />
                 <FieldError errors={errors.mandalId ? [errors.mandalId] : []} />
@@ -284,28 +302,20 @@ function IkpCenterDialog(props: {
                   control={control}
                   name="villageId"
                   render={({ field }) => (
-                    <Select
+                    <GroupedCombobox
                       value={field.value}
                       onValueChange={field.onChange}
+                      groups={villageOptionGroups}
                       disabled={!selectedMandalId || props.isVillagesLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            selectedMandalId
-                              ? "Select village"
-                              : "Select mandal first"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredVillages.map((v) => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder={
+                        selectedMandalId ? "Select village" : "Select mandal first"
+                      }
+                      emptyText={
+                        selectedMandalId
+                          ? "No villages found."
+                          : "Select a mandal first."
+                      }
+                    />
                   )}
                 />
                 <FieldError
