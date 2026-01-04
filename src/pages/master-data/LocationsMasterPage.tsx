@@ -3,10 +3,10 @@ import { useSearchParams } from "react-router-dom";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import LocationsStatesPage from "./LocationsStatesPage";
-import LocationsDistrictsPage from "./LocationsDistrictsPage";
-import LocationsMandalsPage from "./LocationsMandalsPage";
-import LocationsVillagesPage from "./LocationsVillagesPage";
+import LocationsStatesPage from "./locations-states";
+import LocationsDistrictsPage from "./locations-districts";
+import LocationsMandalsPage from "./locations-mandals";
+import LocationsVillagesPage from "./locations-villages";
 
 const allowedTabs = ["states", "districts", "mandals", "villages"] as const;
 

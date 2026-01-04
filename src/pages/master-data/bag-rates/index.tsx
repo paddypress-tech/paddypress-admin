@@ -30,15 +30,8 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+
+
 import { useUiStore } from "@/store";
 import { listCropYears } from "@/lib/cropYears";
 import { listMasterRiceTypes } from "@/lib/masterRiceTypes";
@@ -50,6 +43,8 @@ import {
 import { formatBagSizeLabel, toNumberOrNull } from "@/lib/money";
 import type { CropYear } from "@/types/cropYears";
 import type { BagSize, SeasonCode } from "@/types/seasonBagRates";
+
+import { BagRatesResetDialog } from "./BagRatesResetDialog";
 
 const BAG_SIZES: BagSize[] = ["KG_40", "KG_75", "KG_100"];
 const SEASONS: SeasonCode[] = ["KHARIF", "RABI"];
@@ -108,7 +103,7 @@ export default function BagRatesPage() {
   const [formError, setFormError] = React.useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = React.useState<string | null>(null);
   const [resetOpen, setResetOpen] = React.useState(false);
-  const [resetConfirmText, setResetConfirmText] = React.useState("");
+
 
   React.useEffect(() => {
     if (cropYearStartYear !== null) return;
@@ -123,9 +118,7 @@ export default function BagRatesPage() {
     setFormError(null);
   }, [selectedYear, seasonCode]);
 
-  React.useEffect(() => {
-    if (!resetOpen) setResetConfirmText("");
-  }, [resetOpen]);
+
 
   const cropYearLabelByStartYear = React.useMemo(() => {
     const m = new Map<number, string>();
@@ -273,7 +266,7 @@ export default function BagRatesPage() {
       return resetSeasonBagRates({
         cropYearStartYear: selectedYear,
         seasonCode,
-        confirm: resetConfirmText,
+        confirm: "RESET",
       });
     },
     onSuccess: (res) => {
@@ -494,47 +487,15 @@ export default function BagRatesPage() {
         </div>
       </CardFooter>
 
-      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset bag rates?</DialogTitle>
-            <DialogDescription>
-              This will set all bag rates to 0.00 for the selected crop year and season. This is
-              an admin-only action.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            <div className="text-sm">Type RESET to confirm</div>
-            <Input
-              value={resetConfirmText}
-              onChange={(e) => setResetConfirmText(e.target.value)}
-              placeholder="RESET"
-              autoComplete="off"
-            />
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setResetOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => resetMutation.mutate()}
-              disabled={
-                saveMutation.isPending ||
-                resetMutation.isPending ||
-                riceTypes.length === 0 ||
-                typeof selectedYear !== "number" ||
-                resetConfirmText !== "RESET"
-              }
-            >
-              {resetMutation.isPending ? "Resetting…" : "Reset to zero"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BagRatesResetDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        onReset={() => resetMutation.mutate()}
+        isResetting={resetMutation.isPending}
+        isSaving={saveMutation.isPending}
+        riceTypesCount={riceTypes.length}
+        hasYearSelected={typeof selectedYear === "number"}
+      />
     </Card>
   );
 }

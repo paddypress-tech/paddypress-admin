@@ -1,8 +1,6 @@
 import * as React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
+
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Field,
-  FieldError,
-  FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import {
@@ -44,32 +40,25 @@ import {
 import { MoreHorizontalIcon } from "lucide-react";
 
 import { useUiStore } from "@/store";
+import { useAuth } from "@/context/AuthContext";
 import { useDebounce } from "@/lib/useDebounce";
 import {
-  createAdminIkpState,
-  deactivateAdminIkpState,
-  deleteAdminIkpStatePermanently,
-  listAdminIkpStates,
-  updateAdminIkpState,
-} from "@/lib/adminIkpLocations";
-import type { AdminIkpState } from "@/types/adminIkpLocations";
+  createAdminState,
+  deactivateAdminState,
+  deleteAdminStatePermanently,
+  listAdminStates,
+  updateAdminState,
+  bulkUploadStates,
+} from "@/lib/adminLocations";
+import type { AdminState } from "@/types/adminLocations";
+import { BulkUploadDialog } from "@/components/BulkUploadDialog";
 
 const DEFAULT_PAGE_SIZE = 10;
 
-const stateSchema = z.object({
-  code: z
-    .string()
-    .min(1, "Enter a state code.")
-    .max(10, "Max 10 characters.")
-    .toUpperCase(),
-  name: z
-    .string()
-    .min(1, "Enter a state name.")
-    .max(100, "Max 100 characters."),
-  isActive: z.boolean(),
-});
-
-type StateFormData = z.infer<typeof stateSchema>;
+import {
+  LocationsStateDialog,
+  type StateFormData,
+} from "./LocationsStateDialog";
 
 function ActiveBadge({ isActive }: { isActive: boolean }) {
   return (
@@ -79,114 +68,9 @@ function ActiveBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-function StateDialog(props: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  initialValues: StateFormData;
-  onSave: (data: StateFormData) => void;
-  isSaving: boolean;
-  disableCode?: boolean;
-}) {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    control,
-    formState: { errors, isValid, isDirty },
-  } = useForm<StateFormData>({
-    resolver: zodResolver(stateSchema),
-    defaultValues: props.initialValues,
-    mode: "onChange",
-  });
-
-  React.useEffect(() => {
-    if (props.open) {
-      reset(props.initialValues);
-    }
-  }, [props.open, props.initialValues, reset]);
-
-  return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{props.title}</DialogTitle>
-          <DialogDescription>{props.description}</DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(props.onSave)} className="space-y-4">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="stateCode">Code</FieldLabel>
-              <InputGroup>
-                <InputGroupAddon>Code</InputGroupAddon>
-                <InputGroupInput
-                  id="stateCode"
-                  placeholder="AP"
-                  disabled={props.disableCode}
-                  {...register("code")}
-                />
-              </InputGroup>
-              <FieldError errors={errors.code ? [errors.code] : []} />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="stateName">Name</FieldLabel>
-              <InputGroup>
-                <InputGroupAddon>Name</InputGroupAddon>
-                <InputGroupInput
-                  id="stateName"
-                  placeholder="Andhra Pradesh"
-                  {...register("name")}
-                />
-              </InputGroup>
-              <FieldError errors={errors.name ? [errors.name] : []} />
-            </Field>
-
-            <Field>
-              <label className="flex items-center gap-2 text-sm">
-                <Controller
-                  control={control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={(v) => field.onChange(Boolean(v))}
-                    />
-                  )}
-                />
-                <span>Active</span>
-              </label>
-            </Field>
-          </FieldGroup>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => props.onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                props.isSaving ||
-                !isValid ||
-                (props.disableCode ? !isDirty : false)
-              }
-            >
-              {props.isSaving ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export default function IkpStatesPage() {
+export default function LocationsStatesPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const { showToast } = useUiStore();
   const queryClient = useQueryClient();
 
@@ -198,10 +82,12 @@ export default function IkpStatesPage() {
   const [limit] = React.useState(DEFAULT_PAGE_SIZE);
 
   const [createOpen, setCreateOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<AdminIkpState | null>(null);
+  const [bulkOpen, setBulkOpen] = React.useState(false);
+
+  const [editing, setEditing] = React.useState<AdminState | null>(null);
   const [deactivateTarget, setDeactivateTarget] =
-    React.useState<AdminIkpState | null>(null);
-  const [deleteTarget, setDeleteTarget] = React.useState<AdminIkpState | null>(null);
+    React.useState<AdminState | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<AdminState | null>(null);
 
   const [createInitialValues, setCreateInitialValues] =
     React.useState<StateFormData>({
@@ -215,9 +101,9 @@ export default function IkpStatesPage() {
   }, [debouncedSearch, includeInactive]);
 
   const listQuery = useQuery({
-    queryKey: ["adminIkpStates", debouncedSearch, includeInactive, page, limit],
+    queryKey: ["adminStates", debouncedSearch, includeInactive, page, limit],
     queryFn: () =>
-      listAdminIkpStates({
+      listAdminStates({
         search: debouncedSearch,
         includeInactive,
         page,
@@ -226,11 +112,11 @@ export default function IkpStatesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: createAdminIkpState,
+    mutationFn: createAdminState,
     onSuccess: (res) => {
       showToast(res.message ?? "State created.", "success");
       setCreateInitialValues({ code: "", name: "", isActive: true });
-      void queryClient.invalidateQueries({ queryKey: ["adminIkpStates"] });
+      void queryClient.invalidateQueries({ queryKey: ["adminStates"] });
     },
     onError: (err) => {
       showToast(
@@ -241,11 +127,11 @@ export default function IkpStatesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteAdminIkpStatePermanently,
+    mutationFn: deleteAdminStatePermanently,
     onSuccess: (res) => {
       showToast(res.message ?? "State deleted.", "success");
       setDeleteTarget(null);
-      void queryClient.invalidateQueries({ queryKey: ["adminIkpStates"] });
+      void queryClient.invalidateQueries({ queryKey: ["adminStates"] });
     },
     onError: (err) => {
       showToast(err instanceof Error ? err.message : "Failed to delete state.", "error");
@@ -254,11 +140,11 @@ export default function IkpStatesPage() {
 
   const updateMutation = useMutation({
     mutationFn: (args: { id: string; payload: StateFormData }) =>
-      updateAdminIkpState(args.id, args.payload),
+      updateAdminState(args.id, args.payload),
     onSuccess: (res) => {
       showToast(res.message ?? "State updated.", "success");
       setEditing(null);
-      void queryClient.invalidateQueries({ queryKey: ["adminIkpStates"] });
+      void queryClient.invalidateQueries({ queryKey: ["adminStates"] });
     },
     onError: (err) => {
       showToast(
@@ -269,11 +155,11 @@ export default function IkpStatesPage() {
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: deactivateAdminIkpState,
+    mutationFn: deactivateAdminState,
     onSuccess: (res) => {
       showToast(res.message ?? "State deactivated.", "success");
       setDeactivateTarget(null);
-      void queryClient.invalidateQueries({ queryKey: ["adminIkpStates"] });
+      void queryClient.invalidateQueries({ queryKey: ["adminStates"] });
     },
     onError: (err) => {
       showToast(
@@ -281,6 +167,18 @@ export default function IkpStatesPage() {
         "error"
       );
     },
+  });
+
+  const bulkUploadMutation = useMutation({
+    mutationFn: bulkUploadStates,
+    onSuccess: () => {
+      showToast("States uploaded successfully.", "success");
+      setBulkOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["adminStates"] });
+    },
+    onError: (err) => {
+      showToast(err instanceof Error ? err.message : "Failed to upload states.", "error");
+    }
   });
 
   const items = listQuery.data?.data.items ?? [];
@@ -294,10 +192,17 @@ export default function IkpStatesPage() {
           <div className="space-y-1">
             <CardTitle>States</CardTitle>
             <div className="text-xs text-muted-foreground">
-              Only Andhra Pradesh (AP) and Telangana (TG) are supported.
+              Manage generic location states.
             </div>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>New state</Button>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <>
+                <Button variant="outline" onClick={() => setBulkOpen(true)}>Bulk Upload</Button>
+                <Button onClick={() => setCreateOpen(true)}>New state</Button>
+              </>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -333,7 +238,7 @@ export default function IkpStatesPage() {
                   <TableHead>Code</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px] text-right">Actions</TableHead>
+                  {isAdmin && <TableHead className="w-[80px] text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -365,32 +270,34 @@ export default function IkpStatesPage() {
                       <TableCell className="text-xs">
                         <ActiveBadge isActive={row.isActive} />
                       </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            aria-label="Open actions"
-                            className={buttonVariants({ size: "icon-xs", variant: "ghost" })}
-                          >
-                            <MoreHorizontalIcon className="size-3.5" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setEditing(row)}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setDeactivateTarget(row)}
-                              disabled={!row.isActive}
+                      {isAdmin && (
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              aria-label="Open actions"
+                              className={buttonVariants({ size: "icon-xs", variant: "ghost" })}
                             >
-                              Deactivate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => setDeleteTarget(row)}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+                              <MoreHorizontalIcon className="size-3.5" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setEditing(row)}>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setDeactivateTarget(row)}
+                                disabled={!row.isActive}
+                              >
+                                Deactivate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setDeleteTarget(row)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))
                 )}
@@ -434,17 +341,26 @@ export default function IkpStatesPage() {
         </CardContent>
       </Card>
 
-      <StateDialog
+      <LocationsStateDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="New state"
-        description="Add a state. Only AP and TG are allowed."
+        description="Add a generic location state."
         initialValues={createInitialValues}
         onSave={(data) => createMutation.mutate(data)}
         isSaving={createMutation.isPending}
       />
 
-      <StateDialog
+      <BulkUploadDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title="Bulk Upload States"
+        description="Enter comma separated state names (e.g. Telangana, Andhra Pradesh). Code will be auto-generated if possible."
+        onUpload={(items) => bulkUploadMutation.mutate(items)}
+        isUploading={bulkUploadMutation.isPending}
+      />
+
+      <LocationsStateDialog
         open={Boolean(editing)}
         onOpenChange={(open) => (!open ? setEditing(null) : null)}
         title="Edit state"
@@ -470,8 +386,7 @@ export default function IkpStatesPage() {
           <DialogHeader>
             <DialogTitle>Deactivate state</DialogTitle>
             <DialogDescription>
-              This will mark the state inactive. Existing
-              districts/mandals/centers will remain.
+              This will mark the state inactive.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
