@@ -148,7 +148,7 @@ export default function AdminLayout() {
           <aside className="flex flex-col border-r border-border bg-sidebar text-sidebar-foreground">
             <div className="flex h-14 items-center justify-between px-4">
               <div className="flex flex-col leading-tight">
-                <div className="text-sm font-semibold">KingForge Admin</div>
+                <div className="text-sm font-semibold">PaddyPress Admin</div>
                 <div className="text-xs text-muted-foreground">Master data</div>
               </div>
             </div>

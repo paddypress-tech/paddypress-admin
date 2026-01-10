@@ -93,7 +93,7 @@ export default function Login() {
 
   return (
     <AuthCardLayout
-      title="KingForge Admin"
+      title="PaddyPress Admin"
       subtitle="Sign in to manage master data."
       belowCard={
         <FieldDescription>
